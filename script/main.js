@@ -5,6 +5,7 @@ var r_1 = window.innerHeight*0.2; //Radius of the inner circle
 var r_2 = window.innerHeight*0.9; //Radius of the outer circle
 var number_of_bins = 17; //Number of frequency bins
 var d_phi = 2*Math.PI / number_of_bins;
+var voronoi, bbox, sites = [], voronoi_cell_lines = []; //objects for the voronoi diagram
 
 function init() {
   camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 10000 );
@@ -16,6 +17,10 @@ function init() {
   freq_points = new Array(number_of_bins);
 
   var phi_offset = d_phi / 2.0;
+
+  // Initialise the voronoi diagram
+  voronoi = new Voronoi();
+  bbox = {xl:0, xr:window.innerWidth, yl:0, yr:window.innerHeight};
 
   // Initialise points for the inner circle
   for (var i = 0; i < number_of_bins; ++i) {
@@ -45,7 +50,12 @@ function init() {
       scene.add(freq_points[i]);
       freq_points[i].position.x = ((r_2 - r_1) / 2 + r_1) * Math.sin(d_phi*i)
       freq_points[i].position.y = ((r_2 - r_1) / 2 + r_1) * Math.cos(d_phi*i)
+      // Push the points as central points for the voronoi diagram
+      sites.push({x:freq_points[i].position.x,y:freq_points[i].position.y});
   }
+
+  voronoi.compute(sites, bbox);
+  refreshVoronoiVisualization();
 
   renderer = new THREE.CanvasRenderer();
   renderer.setSize( window.innerWidth, window.innerHeight );
@@ -62,7 +72,6 @@ function animate() {
     freq_points[i].position.x = new_distances[i] * Math.sin(d_phi*i)
     freq_points[i].position.y = new_distances[i] * Math.cos(d_phi*i)
   }
-
   renderer.render( scene, camera );
 }
 
@@ -74,4 +83,24 @@ function getDistances() {
   }
 
   return distances;
+}
+
+function refreshVoronoiVisualization() {
+  var line_material = new THREE.LineBasicMaterial({color: 0xffffff});
+
+  // Remove old cell lines
+  for (var i = 0; i < voronoi_cell_lines.size(); ++i) {
+    scene.remove(voronoi_cell_lines[i]);
+  }
+
+  // Create and add new cell lines
+  for (var i = 0; i < voronoi.Edge.size(); ++i) {
+    var geometry = new THREE.Geometry();
+    var edge = voronoi.Edge;
+    geometry.vertices.push( new THREE.Vector3( edge.va.x, edge.va.y, 0 ) );
+    geometry.vertices.push( new THREE.Vector3( edge.vb.x, edge.vb.y, 0 ) );
+
+    voronoi_cell_lines.push( new THREE.Line( geometry, line_material ));
+    scene.add( voronoi_cell_lines[i] );
+  }
 }
